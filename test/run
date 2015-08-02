@@ -1,45 +1,72 @@
 #!/usr/bin/env python
 
-import os
+import os, os.path
+import glob
 import sys
 import subprocess
-from io import open
 
-PYTHON_VERSIONS = ["2.4", "2.7", "3.4"]
+PYTHON_VERSIONS = ["3.4"]
 
-def compare(case, arguments=[]):
+def compare(fn_left, fn_right, case, pyver):
     failed = False
-    for pyver in PYTHON_VERSIONS:
-        ext = "xlsx"
-        if os.path.exists("test/%s.xlsm" % case):
-            ext = "xlsm"
-        left = subprocess.check_output(["python%s" %pyver, "./xlsx2csv.py"] + arguments + ["test/%s.%s" %(case, ext)]).decode('utf-8').replace('\r','')
 
-        f = open("test/%s.csv" %case, "r", encoding="utf-8", newline="")
-        right = f.read().replace('\r','')
+    with open(fn_left, "r", encoding="utf-8", newline="") as f:
+        left = f.read()
         f.close()
 
-        if left != right:
-            print("FAILED: %s %s" %(case, pyver))
-            print(" actual:", left.replace("\r", "\\r").replace("\n", "\\n"))
-            print(" expected:", right.replace("\r", "\\r").replace("\n", "\\n"))
-            failed = True
-        else:
-            print("OK: %s %s" %(case, pyver))
+    with open(fn_right, "r", encoding="utf-8", newline="") as f:
+        right = f.read()
+        f.close()
+
+    if left != right:
+        print("["+ pyver + "] FAILED: " + fn_right)
+        print(" actual:", left.replace("\r", "\\r").replace("\n", "\\n"))
+        print(" expected:", right.replace("\r", "\\r").replace("\n", "\\n"))
+        failed = True
+    else:
+        print("["+ pyver + "] OK: " + fn_right)
+
     if failed:
         sys.exit(1)
 
-compare("datetime", ["--dateformat=%Y-%m-%d %H:%M:%S"])
-compare("empty_row")
-compare("junk-small")
-compare("last-column-empty")
-compare("sheets", ["-a"])
-compare("skip_empty_lines", ["-i"])
-compare("twolettercolumns")
-compare("xlsx2csv-test-file")
-compare("escape", ["-e"])
-compare("hyperlinks", ["--hyperlinks"])
-compare("hyperlinks_continous", ["--hyperlinks"])
-compare("namespace")
-compare("float")
-compare("variousdelim", ["--all","--sheetdelimiter=x33", "--lineterminator=\\r", "--delimiter=\\t"])
+def verify(case, arguments=[]):
+    input_ext = ".xlsx"
+    output_ext = ".csv-test"
+    verify_ext = ".csv"
+
+    for pyver in PYTHON_VERSIONS:
+
+        input_ext = ".xlsx"
+        if os.path.exists("test/%s.xlsm" % case):
+            input_ext  = ".xlsm"
+
+        #execute
+        if os.name == 'posix':# in case of Linux
+            exec_log = subprocess.check_output(["python" + pyver, "./xlsx2csv.py"] + arguments + ["test/" case + input_ext, "test/" + case + output_ext]).decode('utf-8')
+        elif os.name == 'nt':# in case of Windows
+            exec_log = subprocess.check_output(["py", "-" + pyver, "./xlsx2csv.py"] + arguments + ["test/"+ case + input_ext, "test/"+ case + output_ext]).decode('utf-8')
+        else:
+            print("os.name is unexpected: "+os.name)
+            sys.exit(1)
+
+        #compare
+        if os.path.isdir("test/" + case + output_ext):
+            for fn in glob.glob("test/" + case + output_ext + "/*"):
+                compare(fn, fn.replace(output_ext,verify_ext), case, pyver)
+        else:
+            compare("test/" + case + output_ext, "test/" + case + verify_ext, case, pyver)
+
+verify("datetime", ["--dateformat=%Y-%m-%d %H:%M:%S"])
+verify("empty_row")
+verify("junk-small")
+verify("last-column-empty")
+verify("sheets", ["-a"])
+verify("skip_empty_lines", ["-i"])
+verify("twolettercolumns")
+verify("xlsx2csv-test-file")
+verify("escape", ["-e"])
+verify("hyperlinks", ["--hyperlinks"])
+verify("hyperlinks_continous", ["--hyperlinks"])
+verify("namespace")
+verify("float")
+verify("variousdelim", ["--all","--sheetdelimiter=x33", "--lineterminator=\\r", "--delimiter=\\t"])

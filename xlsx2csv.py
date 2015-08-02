@@ -24,6 +24,7 @@ __license__ = "GPL-2+"
 __version__ = "0.7.2"
 
 import csv, datetime, zipfile, string, sys, os, re
+from io import open
 import xml.parsers.expat
 from xml.dom import minidom
 try:
@@ -768,7 +769,6 @@ if __name__ == "__main__":
         nargs_plus = 1
         argparser = False
 
-
     if sys.version_info[0] == 2 and sys.version_info[1] < 5:
         inttype = "int"
     else:
@@ -864,10 +864,6 @@ if __name__ == "__main__":
     if options.all:
         sheetid = 0
 
-    if sys.platform == "win32":
-        import os, msvcrt
-        msvcrt.setmode(sys.stdout.fileno(), os.O_BINARY)
-        
     outfile = options.outfile or sys.stdout
     try:
         if os.path.isdir(options.infile):
